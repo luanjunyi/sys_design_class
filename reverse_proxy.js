@@ -1,22 +1,40 @@
-// proxy-server.js
-
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const yargs = require('yargs');
 
-// Global array of backend servers
-const backendServers = [
-  'http://127.0.0.1:7101',
-  'http://127.0.0.1:7102',
-  'http://127.0.0.1:7103',
-  'http://127.0.0.1:7104',
-  'http://127.0.0.1:7105',
-  // Add more backend server URLs as needed
-];
+// Parse command-line arguments
+const argv = yargs(process.argv.slice(2))
+  .option('port', {
+    alias: 'p',
+    type: 'number',
+    description: 'Public port for the proxy server',
+    default: 7100,
+    demandOption: true,
+  })
+  .option('appServerBasePort', {
+    alias: 'b',
+    type: 'number',
+    default: 7101,
+    description: 'Base port number for the backend servers',
+    demandOption: true,
+  })
+  .option('num', {
+    alias: 'n',
+    type: 'number',
+    description: 'Number of backend servers',
+    demandOption: true,
+  })
+  .argv;
 
-// Get the public port from command-line arguments
-const argv = yargs(process.argv.slice(2)).argv;
-const port = argv.port || 7100;
+const port = argv.port;
+const appServerBasePort = argv.appServerBasePort;
+const numServers = argv.num;
+
+// Generate the list of backend servers
+const backendServers = [];
+for (let i = 0; i < numServers; i++) {
+  backendServers.push(`http://127.0.0.1:${appServerBasePort + i}`);
+}
 
 const app = express();
 
@@ -43,4 +61,5 @@ app.use(
 // Start the proxy server
 app.listen(port, '127.0.0.1', () => {
   console.log(`Reverse proxy server is running on http://127.0.0.1:${port}`);
+  console.log('Backend servers:', backendServers);
 });
