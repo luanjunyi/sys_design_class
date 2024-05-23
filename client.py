@@ -7,20 +7,26 @@ import time
 async def fetch(session, url):
     # Measure the time before sending the requests
     start_time = time.time_ns() / 1e6
-    async with session.post(url, json={}) as response:
-        resp = await response.json()
-        # Calculate the round-trip time
-        end_time = time.time_ns() / 1e6
-        round_trip_time = end_time - start_time
-        result = f"[{round_trip_time:.2f}ms] {resp}"
-        print(result)
-        return result
+    try:
+        async with session.post(url, json={}) as response:
+            resp = await response.json()
+            # Calculate the round-trip time
+            end_time = time.time_ns() / 1e6
+            round_trip_time = end_time - start_time
+            result = f"[{round_trip_time:.2f}ms] {resp}"
+            print(result)
+            return result
+    except Exception as err:
+        round_trip_time = float('inf')
+        error_message = str(err)
+        print("Request failed:", error_message)
+        return error_message
 
 
-async def make_requests(url, num_requests):
-    async with aiohttp.ClientSession() as session:
+async def make_requests(url, options):
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=options.timeout)) as session:
         tasks = []
-        for _ in range(num_requests):
+        for _ in range(options.num_requests):
             tasks.append(fetch(session, url))
         results = await asyncio.gather(*tasks)
         return results
@@ -32,21 +38,23 @@ def main():
     parser.add_argument('--server', type=str,
                         default='127.0.0.1', help='Server IP address')
     parser.add_argument('--port', type=int, default=7100, help='Server port')
-    parser.add_argument('--concurrent', type=int, default=17,
+    parser.add_argument('--num_requests', type=int, default=17,
                         help='Number of concurrent requests')
+    parser.add_argument('--timeout', type=int, default=5,
+                        help='timeout in seconds')
 
     # Parse arguments
     args = parser.parse_args()
     server_ip = args.server
     server_port = args.port
-    num_requests = args.concurrent
+    options = args
 
     # Construct the URL
     url = f'http://{server_ip}:{server_port}'
 
     # Make the concurrent requests
     try:
-        results = asyncio.run(make_requests(url, num_requests))
+        results = asyncio.run(make_requests(url, options))
 
     except aiohttp.ClientError as e:
         print(f"An error occurred: {e}")
